@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CollabCode</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body class="home-body">
+  <div class="home-container">
+    <div class="home-card">
+      <div class="logo">
+        <span class="logo-icon">&lt;/&gt;</span>
+        <h1>CollabCode</h1>
+      </div>
+      <p class="tagline">Real-time collaborative code editor. No sign-up needed.</p>
+
+      <button id="createBtn" class="btn btn-primary btn-full">Create New Room</button>
+
+      <div class="divider"><span>or join existing</span></div>
+
+      <div class="join-form">
+        <input id="roomInput" type="text" class="input" placeholder="Enter Room Code (e.g. A1B2C3D4)" maxlength="8"/>
+        <input id="usernameInput" type="text" class="input" placeholder="Your name" maxlength="20"/>
+        <button id="joinBtn" class="btn btn-secondary btn-full">Join Room</button>
+      </div>
+
+      <p id="errorMsg" class="error-msg hidden"></p>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('createBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('createBtn');
+      btn.textContent = 'Creating...';
+      btn.disabled = true;
+
+      const res = await fetch('/create-room', { method: 'POST' });
+      const data = await res.json();
+      const username = prompt('Enter your name:') || 'Anonymous';
+      window.location.href = `/room/${data.room_id}?username=${encodeURIComponent(username)}`;
+    });
+
+    document.getElementById('joinBtn').addEventListener('click', () => {
+      const roomId = document.getElementById('roomInput').value.trim().toUpperCase();
+      const username = document.getElementById('usernameInput').value.trim() || 'Anonymous';
+      const errorMsg = document.getElementById('errorMsg');
+
+      if (!roomId) {
+        errorMsg.textContent = 'Please enter a room code.';
+        errorMsg.classList.remove('hidden');
+        return;
+      }
+      window.location.href = `/room/${roomId}?username=${encodeURIComponent(username)}`;
+    });
+
+    document.getElementById('roomInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('joinBtn').click();
+    });
+  </script>
+</body>
+</html>

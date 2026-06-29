@@ -1,0 +1,245 @@
+/* ===== Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #1e1e2e;
+  --bg-card:   #27273a;
+  --bg-nav:    #16162a;
+  --bg-side:   #1a1a2e;
+  --accent:    #7c3aed;
+  --accent-h:  #6d28d9;
+  --green:     #22c55e;
+  --red:       #ef4444;
+  --text:      #e2e8f0;
+  --muted:     #64748b;
+  --border:    #2e2e45;
+  --radius:    8px;
+}
+
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; }
+
+/* ===== Home Page ===== */
+.home-body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+
+.home-container { width: 100%; max-width: 420px; padding: 1.5rem; }
+
+.home-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.logo { display: flex; align-items: center; gap: 0.75rem; }
+.logo-icon { font-size: 2rem; color: var(--accent); font-weight: 700; }
+.logo h1 { font-size: 1.6rem; font-weight: 700; }
+
+.tagline { color: var(--muted); font-size: 0.9rem; }
+
+/* ===== Buttons ===== */
+.btn {
+  padding: 0.65rem 1.2rem;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-primary  { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-h); }
+.btn-secondary { background: var(--bg-nav); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-full { width: 100%; }
+
+/* ===== Inputs ===== */
+.input {
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  background: var(--bg-nav);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.input:focus { border-color: var(--accent); }
+
+.join-form { display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* ===== Divider ===== */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ===== Error ===== */
+.error-msg { color: var(--red); font-size: 0.85rem; }
+.hidden { display: none; }
+
+/* ===== Navbar ===== */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  height: 52px;
+  background: var(--bg-nav);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: 1rem;
+}
+
+.nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--accent); text-decoration: none; }
+
+.nav-center { display: flex; align-items: center; gap: 0.6rem; }
+.room-label { font-size: 0.8rem; color: var(--muted); }
+.room-id {
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  background: var(--bg);
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  letter-spacing: 0.1em;
+}
+
+.btn-copy {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-copy:hover { border-color: var(--accent); color: var(--accent); }
+.btn-copy.copied { border-color: var(--green); color: var(--green); }
+
+.nav-right { display: flex; align-items: center; gap: 0.75rem; }
+
+.lang-select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+}
+.lang-select:focus { border-color: var(--accent); }
+
+.connection-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: background 0.3s;
+}
+.connection-dot.connected { background: var(--green); }
+.connection-dot.disconnected { background: var(--red); }
+.connection-label { font-size: 0.78rem; color: var(--muted); }
+
+/* ===== Editor Layout ===== */
+.editor-body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+.editor-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor-pane {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* CodeMirror fills the pane */
+.CodeMirror {
+  height: 100% !important;
+  font-size: 14px;
+  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  line-height: 1.6;
+}
+
+/* ===== Sidebar ===== */
+.sidebar {
+  width: 220px;
+  background: var(--bg-side);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sidebar-section {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 0.6rem;
+}
+
+/* ===== User List ===== */
+.user-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+
+.user-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.user-avatar {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.you-badge { font-size: 0.65rem; color: var(--muted); }
+
+/* ===== Cursor Info ===== */
+.cursor-info { display: flex; flex-direction: column; gap: 0.4rem; }
+.cursor-entry { font-size: 0.8rem; }
+.cursor-entry span { font-weight: 600; }
+
+.muted { color: var(--muted); font-size: 0.82rem; }
+
+/* ===== Save Status ===== */
+#saveStatus { font-size: 0.8rem; }
+#saveStatus.saved { color: var(--green); }
+#saveStatus.saving { color: var(--accent); }

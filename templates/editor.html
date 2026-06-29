@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CollabCode — Room {{ room.id }}</title>
+
+  <!-- CodeMirror 5 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css"/>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body class="editor-body">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="/" class="nav-logo">&lt;/&gt; CollabCode</a>
+
+    <div class="nav-center">
+      <span class="room-label">Room</span>
+      <span class="room-id" id="roomIdDisplay">{{ room.id }}</span>
+      <button class="btn-copy" id="copyBtn" title="Copy room link">Copy Link</button>
+    </div>
+
+    <div class="nav-right">
+      <select id="languageSelect" class="lang-select">
+        <option value="python">Python</option>
+        <option value="javascript">JavaScript</option>
+        <option value="cpp">C++</option>
+        <option value="java">Java</option>
+        <option value="sql">SQL</option>
+        <option value="text">Plain Text</option>
+      </select>
+      <div class="connection-dot" id="connectionDot"></div>
+      <span class="connection-label" id="connectionLabel">Connecting...</span>
+    </div>
+  </nav>
+
+  <!-- Main Layout -->
+  <div class="editor-layout">
+    <!-- Code Editor -->
+    <div class="editor-pane">
+      <textarea id="codeEditor">{{ room.code }}</textarea>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Active Users</h3>
+        <ul id="userList" class="user-list"></ul>
+      </div>
+
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Cursors</h3>
+        <div id="cursorInfo" class="cursor-info">
+          <p class="muted">No other users yet.</p>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">Status</h3>
+        <p id="saveStatus" class="muted">Waiting for changes...</p>
+      </div>
+    </aside>
+  </div>
+
+  <!-- CodeMirror JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+
+  <!-- Socket.IO -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+
+  <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+  <script>
+    const ROOM_ID = "{{ room.id }}";
+    const INITIAL_LANG = "{{ room.language }}";
+    const USERNAME = new URLSearchParams(window.location.search).get('username') || 'Anonymous';
+    initEditor(ROOM_ID, INITIAL_LANG, USERNAME);
+  </script>
+</body>
+</html>
