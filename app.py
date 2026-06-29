@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, jsonify
-from flask_socketio import SocketIO, join_room, leave_room, emit
-from models import db, Room
-import uuid
+from flask_socketio import SocketIO, join_room, emit
+from models import db, Room, Snapshot
+from datetime import datetime, timedelta
+import uuid, subprocess, sys, threading, time
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'collabcode-secret-key'
@@ -11,9 +12,26 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# {room_id: {sid: username}}
-active_users = {}
+active_users = {}   # {room_id: {sid: username}}
+chat_history = {}   # {room_id: [messages]}  — in-memory, last 100 per room
 
+
+# --- Background: delete rooms inactive for 24h ---
+def _cleanup_loop():
+    while True:
+        time.sleep(3600)
+        with app.app_context():
+            cutoff = datetime.utcnow() - timedelta(hours=24)
+            old = Room.query.filter(Room.last_active < cutoff).all()
+            for room in old:
+                db.session.delete(room)
+            if old:
+                db.session.commit()
+
+threading.Thread(target=_cleanup_loop, daemon=True).start()
+
+
+# --- Page routes ---
 
 @app.route('/')
 def index():
@@ -39,29 +57,99 @@ def create_room():
     return jsonify({'room_id': room_id})
 
 
-# --- WebSocket Events ---
+# --- Code execution ---
+
+@app.route('/execute', methods=['POST'])
+def execute_code():
+    data = request.json
+    code = data.get('code', '')
+    language = data.get('language', 'python')
+
+    if language != 'python':
+        return jsonify({
+            'output': f'Execution is only supported for Python right now.\nOther languages coming soon!',
+            'error': False
+        })
+
+    try:
+        result = subprocess.run(
+            [sys.executable, '-c', code],
+            capture_output=True, text=True, timeout=5
+        )
+        output = result.stdout + result.stderr
+        return jsonify({'output': output or '(no output)', 'error': bool(result.returncode)})
+    except subprocess.TimeoutExpired:
+        return jsonify({'output': 'Timed out (5s limit).', 'error': True})
+    except Exception as e:
+        return jsonify({'output': str(e), 'error': True})
+
+
+# --- Snapshot routes ---
+
+@app.route('/room/<room_id>/snapshots', methods=['GET'])
+def get_snapshots(room_id):
+    snaps = Snapshot.query.filter_by(room_id=room_id).order_by(Snapshot.created_at.desc()).all()
+    return jsonify([{
+        'id': s.id,
+        'name': s.name,
+        'language': s.language,
+        'created_at': s.created_at.strftime('%b %d, %H:%M')
+    } for s in snaps])
+
+
+@app.route('/room/<room_id>/snapshots', methods=['POST'])
+def save_snapshot(room_id):
+    room = Room.query.get(room_id)
+    if not room:
+        return jsonify({'error': 'Room not found'}), 404
+    data = request.json
+    snap = Snapshot(
+        id=str(uuid.uuid4())[:8],
+        room_id=room_id,
+        name=data.get('name', f'Snapshot {datetime.utcnow().strftime("%H:%M")}'),
+        code=room.code,
+        language=room.language
+    )
+    db.session.add(snap)
+    db.session.commit()
+    return jsonify({'id': snap.id, 'name': snap.name, 'language': snap.language,
+                    'created_at': snap.created_at.strftime('%b %d, %H:%M')})
+
+
+@app.route('/room/<room_id>/snapshots/<snap_id>/restore', methods=['POST'])
+def restore_snapshot(room_id, snap_id):
+    snap = Snapshot.query.get(snap_id)
+    if not snap or snap.room_id != room_id:
+        return jsonify({'error': 'Not found'}), 404
+    room = Room.query.get(room_id)
+    room.code = snap.code
+    room.language = snap.language
+    room.last_active = datetime.utcnow()
+    db.session.commit()
+    socketio.emit('code_update', {'code': snap.code}, to=room_id)
+    socketio.emit('language_update', {'language': snap.language}, to=room_id)
+    return jsonify({'code': snap.code, 'language': snap.language})
+
+
+# --- WebSocket events ---
 
 @socketio.on('join')
 def on_join(data):
     room_id = data['room_id']
     username = data['username']
-
     join_room(room_id)
 
-    if room_id not in active_users:
-        active_users[room_id] = {}
-    active_users[room_id][request.sid] = username
+    active_users.setdefault(room_id, {})[request.sid] = username
 
     room = Room.query.get(room_id)
-    emit('init_code', {
-        'code': room.code,
-        'language': room.language
-    })
+    emit('init_code', {'code': room.code, 'language': room.language})
+
+    if room_id in chat_history:
+        emit('chat_history', {'messages': chat_history[room_id]})
 
     emit('user_list_update', {
         'users': list(active_users[room_id].values()),
-        'event': 'joined',
-        'username': username
+        'event': 'joined', 'username': username
     }, to=room_id)
 
 
@@ -69,12 +157,11 @@ def on_join(data):
 def on_code_change(data):
     room_id = data['room_id']
     code = data['code']
-
     room = Room.query.get(room_id)
     if room:
         room.code = code
+        room.last_active = datetime.utcnow()
         db.session.commit()
-
     emit('code_update', {'code': code}, to=room_id, include_self=False)
 
 
@@ -82,12 +169,11 @@ def on_code_change(data):
 def on_language_change(data):
     room_id = data['room_id']
     language = data['language']
-
     room = Room.query.get(room_id)
     if room:
         room.language = language
+        room.last_active = datetime.utcnow()
         db.session.commit()
-
     emit('language_update', {'language': language}, to=room_id, include_self=False)
 
 
@@ -96,10 +182,20 @@ def on_cursor_move(data):
     room_id = data['room_id']
     username = active_users.get(room_id, {}).get(request.sid, 'Unknown')
     emit('cursor_update', {
-        'username': username,
-        'line': data['line'],
-        'ch': data['ch']
+        'username': username, 'line': data['line'], 'ch': data['ch']
     }, to=room_id, include_self=False)
+
+
+@socketio.on('chat_message')
+def on_chat_message(data):
+    room_id = data['room_id']
+    username = active_users.get(room_id, {}).get(request.sid, 'Unknown')
+    msg = {'username': username, 'text': data['text'],
+           'time': datetime.utcnow().strftime('%H:%M')}
+    history = chat_history.setdefault(room_id, [])
+    history.append(msg)
+    chat_history[room_id] = history[-100:]
+    emit('chat_broadcast', msg, to=room_id)
 
 
 @socketio.on('disconnect')
@@ -107,10 +203,10 @@ def on_disconnect():
     for room_id, users in list(active_users.items()):
         if request.sid in users:
             username = users.pop(request.sid)
+            emit('remove_cursor', {'username': username}, to=room_id)
             emit('user_list_update', {
                 'users': list(users.values()),
-                'event': 'left',
-                'username': username
+                'event': 'left', 'username': username
             }, to=room_id)
             if not users:
                 del active_users[room_id]

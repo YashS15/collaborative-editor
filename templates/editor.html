@@ -4,14 +4,16 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>CollabCode — Room {{ room.id }}</title>
-
-  <!-- CodeMirror 5 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css"/>
-
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
 </head>
 <body class="editor-body">
+
+  <!-- Read-only banner -->
+  <div class="readonly-banner hidden" id="readonlyBanner">
+    &#128065; View Only — editing is disabled in this mode
+  </div>
 
   <!-- Navbar -->
   <nav class="navbar">
@@ -20,7 +22,17 @@
     <div class="nav-center">
       <span class="room-label">Room</span>
       <span class="room-id" id="roomIdDisplay">{{ room.id }}</span>
-      <button class="btn-copy" id="copyBtn" title="Copy room link">Copy Link</button>
+      <button class="btn-copy" id="copyBtn">Copy Link</button>
+    </div>
+
+    <div class="nav-actions">
+      <button class="btn btn-run" id="runBtn" title="Run code (Python only)">&#9654; Run</button>
+      <button class="btn-tool" id="downloadBtn" title="Download file">&#11015; Save</button>
+      <button class="btn-tool" id="snapshotBtn" title="Save a snapshot">&#128247; Snap</button>
+      <div class="font-controls">
+        <button class="btn-tool" id="fontDecBtn" title="Decrease font size">A&#8722;</button>
+        <button class="btn-tool" id="fontIncBtn" title="Increase font size">A+</button>
+      </div>
     </div>
 
     <div class="nav-right">
@@ -34,38 +46,72 @@
       </select>
       <div class="connection-dot" id="connectionDot"></div>
       <span class="connection-label" id="connectionLabel">Connecting...</span>
+      <button class="btn-tool sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">&#9776;</button>
     </div>
   </nav>
 
   <!-- Main Layout -->
   <div class="editor-layout">
+
     <!-- Code Editor -->
     <div class="editor-pane">
       <textarea id="codeEditor">{{ room.code }}</textarea>
     </div>
 
     <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-section">
-        <h3 class="sidebar-title">Active Users</h3>
-        <ul id="userList" class="user-list"></ul>
+    <aside class="sidebar" id="sidebar">
+      <!-- Tabs -->
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" data-tab="users">Users</button>
+        <button class="tab-btn" data-tab="chat">Chat</button>
+        <button class="tab-btn" data-tab="history">History</button>
       </div>
 
-      <div class="sidebar-section">
-        <h3 class="sidebar-title">Cursors</h3>
-        <div id="cursorInfo" class="cursor-info">
-          <p class="muted">No other users yet.</p>
+      <!-- Users Tab -->
+      <div id="tab-users" class="tab-content active">
+        <div class="sidebar-section">
+          <p class="sidebar-title">Active Users</p>
+          <ul id="userList" class="user-list"></ul>
+        </div>
+        <div class="sidebar-section">
+          <p class="sidebar-title">Status</p>
+          <p id="saveStatus" class="muted">Waiting for changes...</p>
         </div>
       </div>
 
-      <div class="sidebar-section">
-        <h3 class="sidebar-title">Status</h3>
-        <p id="saveStatus" class="muted">Waiting for changes...</p>
+      <!-- Chat Tab -->
+      <div id="tab-chat" class="tab-content">
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" class="chat-input" placeholder="Type a message..." maxlength="500"/>
+          <button class="btn btn-primary btn-sm" id="chatSend">&#10148;</button>
+        </div>
+      </div>
+
+      <!-- History Tab -->
+      <div id="tab-history" class="tab-content">
+        <div class="sidebar-section">
+          <p class="sidebar-title">Snapshots</p>
+          <p class="muted" id="noSnapshots">No snapshots yet.<br/>Click &#128247; Snap to save one.</p>
+          <ul id="snapshotList" class="snapshot-list"></ul>
+        </div>
       </div>
     </aside>
   </div>
 
-  <!-- CodeMirror JS -->
+  <!-- Output Panel -->
+  <div class="output-panel" id="outputPanel">
+    <div class="output-header">
+      <span class="output-title">&#9654; Output</span>
+      <div class="output-header-actions">
+        <button class="btn-tool-sm" id="clearOutput">Clear</button>
+        <button class="btn-tool-sm" id="closeOutput">&#10005;</button>
+      </div>
+    </div>
+    <pre class="output-content" id="outputContent"></pre>
+  </div>
+
+  <!-- CodeMirror -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
@@ -73,16 +119,16 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
-
   <!-- Socket.IO -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
 
   <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
   <script>
-    const ROOM_ID = "{{ room.id }}";
-    const INITIAL_LANG = "{{ room.language }}";
-    const USERNAME = new URLSearchParams(window.location.search).get('username') || 'Anonymous';
-    initEditor(ROOM_ID, INITIAL_LANG, USERNAME);
+    const ROOM_ID    = "{{ room.id }}";
+    const INIT_LANG  = "{{ room.language }}";
+    const USERNAME   = new URLSearchParams(window.location.search).get('username') || 'Anonymous';
+    const IS_READONLY = new URLSearchParams(window.location.search).get('mode') === 'view';
+    initEditor(ROOM_ID, INIT_LANG, USERNAME, IS_READONLY);
   </script>
 </body>
 </html>
