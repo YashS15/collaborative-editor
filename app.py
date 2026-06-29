@@ -10,7 +10,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///editor.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 active_users = {}   # {room_id: {sid: username}}
 chat_history = {}   # {room_id: [messages]}  — in-memory, last 100 per room
