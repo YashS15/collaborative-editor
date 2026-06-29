@@ -10,7 +10,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///editor.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 active_users = {}   # {room_id: {sid: username}}
 chat_history = {}   # {room_id: [messages]}  — in-memory, last 100 per room
@@ -29,6 +29,16 @@ def _cleanup_loop():
                 db.session.commit()
 
 threading.Thread(target=_cleanup_loop, daemon=True).start()
+
+with app.app_context():
+    db.create_all()
+    # Migration: add last_active to room table if missing (handles existing DBs)
+    with db.engine.connect() as conn:
+        from sqlalchemy import text
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(room)")).fetchall()]
+        if 'last_active' not in cols:
+            conn.execute(text("ALTER TABLE room ADD COLUMN last_active DATETIME DEFAULT CURRENT_TIMESTAMP"))
+            conn.commit()
 
 
 # --- Page routes ---
@@ -214,6 +224,4 @@ def on_disconnect():
 
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    socketio.run(app, debug=True, port=5000)
+    socketio.run(app, debug=True, port=5000, allow_unsafe_werkzeug=True)

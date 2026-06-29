@@ -15,13 +15,15 @@
       </div>
       <p class="tagline">Real-time collaborative code editor. No sign-up needed.</p>
 
+      <!-- Shared username field -->
+      <input id="usernameInput" type="text" class="input" placeholder="Your name (used for both create & join)" maxlength="20"/>
+
       <button id="createBtn" class="btn btn-primary btn-full">Create New Room</button>
 
       <div class="divider"><span>or join existing</span></div>
 
       <div class="join-form">
         <input id="roomInput" type="text" class="input" placeholder="Enter Room Code (e.g. A1B2C3D4)" maxlength="8"/>
-        <input id="usernameInput" type="text" class="input" placeholder="Your name" maxlength="20"/>
         <button id="joinBtn" class="btn btn-secondary btn-full">Join Room</button>
       </div>
 
@@ -30,20 +32,29 @@
   </div>
 
   <script>
+    function getUsername() {
+      return document.getElementById('usernameInput').value.trim() || 'Anonymous';
+    }
+
     document.getElementById('createBtn').addEventListener('click', async () => {
       const btn = document.getElementById('createBtn');
       btn.textContent = 'Creating...';
       btn.disabled = true;
 
-      const res = await fetch('/create-room', { method: 'POST' });
-      const data = await res.json();
-      const username = prompt('Enter your name:') || 'Anonymous';
-      window.location.href = `/room/${data.room_id}?username=${encodeURIComponent(username)}`;
+      try {
+        const res = await fetch('/create-room', { method: 'POST' });
+        const data = await res.json();
+        window.location.href = `/room/${data.room_id}?username=${encodeURIComponent(getUsername())}`;
+      } catch (e) {
+        btn.textContent = 'Create New Room';
+        btn.disabled = false;
+        document.getElementById('errorMsg').textContent = 'Failed to create room. Is the server running?';
+        document.getElementById('errorMsg').classList.remove('hidden');
+      }
     });
 
     document.getElementById('joinBtn').addEventListener('click', () => {
       const roomId = document.getElementById('roomInput').value.trim().toUpperCase();
-      const username = document.getElementById('usernameInput').value.trim() || 'Anonymous';
       const errorMsg = document.getElementById('errorMsg');
 
       if (!roomId) {
@@ -51,7 +62,7 @@
         errorMsg.classList.remove('hidden');
         return;
       }
-      window.location.href = `/room/${roomId}?username=${encodeURIComponent(username)}`;
+      window.location.href = `/room/${roomId}?username=${encodeURIComponent(getUsername())}`;
     });
 
     document.getElementById('roomInput').addEventListener('keydown', (e) => {
